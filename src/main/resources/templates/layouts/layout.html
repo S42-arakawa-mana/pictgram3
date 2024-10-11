@@ -26,10 +26,16 @@
 		crossorigin="anonymous"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 	<script src="/scripts/method-convert.js" th:src="@{/scripts/method-convert.js}"></script>
+	<script src="https://sdk.push7.jp/v2/p7sdk.js"></script>
+	<script th:inline="javascript">
+		p7.init("6c53eb6f99bb4fab8d1cec9c2501edb0", {
+			mode: "native",
+			subscribe: "auto"
+		});
+	</script>
 	<script>
 		$(function () {
 			convertMethod('.convert');
-
 			$(".alert").fadeOut(5000);
 		});
 	</script>
