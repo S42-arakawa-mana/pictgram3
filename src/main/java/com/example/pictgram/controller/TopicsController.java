@@ -1,30 +1,24 @@
 package com.example.pictgram.controller;
 
-import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
-import org.apache.sanselan.ImageReadException;
-import org.apache.sanselan.Sanselan;
-import org.apache.sanselan.common.IImageMetadata;
-import org.apache.sanselan.formats.jpeg.JpegImageMetadata;
-import org.apache.sanselan.formats.tiff.TiffImageMetadata.GPSInfo;
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -35,31 +29,29 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.thymeleaf.context.Context;
 
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Directory;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.Tag;
+import com.example.pictgram.bean.TopicCsv;
+import com.example.pictgram.entity.Comment;
 import com.example.pictgram.entity.Favorite;
 import com.example.pictgram.entity.Topic;
 import com.example.pictgram.entity.UserInf;
+import com.example.pictgram.form.CommentForm;
 import com.example.pictgram.form.FavoriteForm;
 import com.example.pictgram.form.TopicForm;
 import com.example.pictgram.form.UserForm;
 import com.example.pictgram.repository.TopicRepository;
 import com.example.pictgram.service.SendMailService;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 @Controller
 public class TopicsController {
-
-	protected static Logger log = LoggerFactory.getLogger(TopicsController.class);
-
 	@Autowired
 	private MessageSource messageSource;
 
@@ -89,6 +81,8 @@ public class TopicsController {
 		}
 		model.addAttribute("list", list);
 
+		model.addAttribute("hasFooter", true);
+
 		return "topics/index";
 	}
 
@@ -96,6 +90,7 @@ public class TopicsController {
 		modelMapper.getConfiguration().setAmbiguityIgnored(true);
 		modelMapper.typeMap(Topic.class, TopicForm.class).addMappings(mapper -> mapper.skip(TopicForm::setUser));
 		modelMapper.typeMap(Topic.class, TopicForm.class).addMappings(mapper -> mapper.skip(TopicForm::setFavorites));
+		modelMapper.typeMap(Topic.class, TopicForm.class).addMappings(mapper -> mapper.skip(TopicForm::setComments));
 		modelMapper.typeMap(Favorite.class, FavoriteForm.class)
 				.addMappings(mapper -> mapper.skip(FavoriteForm::setTopic));
 
@@ -136,6 +131,14 @@ public class TopicsController {
 		}
 		form.setFavorites(favorites);
 
+		List<CommentForm> comments = new ArrayList<CommentForm>();
+
+		for (Comment commentEntity : entity.getComments()) {
+			CommentForm comment = modelMapper.map(commentEntity, CommentForm.class);
+			comments.add(comment);
+		}
+		form.setComments(comments);
+
 		return form;
 	}
 
@@ -166,7 +169,7 @@ public class TopicsController {
 	@PostMapping("/topic")
 	public String create(Principal principal, @Validated @ModelAttribute("form") TopicForm form, BindingResult result,
 			Model model, @RequestParam MultipartFile image, RedirectAttributes redirAttrs, Locale locale)
-			throws ImageProcessingException, IOException, ImageReadException {
+			throws IOException {
 
 		if (result.hasErrors()) {
 			model.addAttribute("hasMessage", true);
@@ -208,8 +211,7 @@ public class TopicsController {
 		return "redirect:/topics";
 	}
 
-	private File saveImageLocal(MultipartFile image, Topic entity)
-			throws IOException, ImageProcessingException, ImageReadException {
+	private File saveImageLocal(MultipartFile image, Topic entity) throws IOException {
 		File uploadDir = new File("/uploads");
 		uploadDir.mkdir();
 
@@ -222,61 +224,20 @@ public class TopicsController {
 		File destFile = new File(realPathToUploads, fileName);
 		image.transferTo(destFile);
 
-		setGeoInfo(entity, destFile, image.getOriginalFilename());
-
 		return destFile;
 	}
 
-	private void setGeoInfo(Topic entity, BufferedInputStream inputStream, String fileName)
-			throws ImageProcessingException, IOException, ImageReadException {
-		Metadata metadata = ImageMetadataReader.readMetadata(inputStream);
-		setGeoInfo(entity, metadata, inputStream, null, fileName);
-	}
+	@GetMapping(value = "/topics/topic.csv", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE
+			+ "; charset=UTF-8; Content-Disposition: attachment")
+	@ResponseBody
+	public Object downloadCsv() throws IOException {
+		List<Topic> topics = repository.findAll();
+		Type listType = new TypeToken<List<TopicCsv>>() {
+		}.getType();
+		List<TopicCsv> csv = modelMapper.map(topics, listType);
+		CsvMapper mapper = new CsvMapper();
+		CsvSchema schema = mapper.schemaFor(TopicCsv.class).withHeader();
 
-	private void setGeoInfo(Topic entity, File destFile, String fileName)
-			throws ImageProcessingException, IOException, ImageReadException {
-		Metadata metadata = ImageMetadataReader.readMetadata(destFile);
-		setGeoInfo(entity, metadata, null, destFile, fileName);
-	}
-
-	private void setGeoInfo(Topic entity, Metadata metadata, BufferedInputStream inputStream, File destFile,
-			String fileName) {
-		if (log.isDebugEnabled()) {
-			for (Directory directory : metadata.getDirectories()) {
-				for (Tag tag : directory.getTags()) {
-					log.debug("{} {}", tag.toString(), tag.getTagType());
-				}
-			}
-		}
-
-		try {
-			IImageMetadata iMetadata = null;
-			if (inputStream != null) {
-				iMetadata = Sanselan.getMetadata(inputStream, fileName);
-				IOUtils.closeQuietly(inputStream);
-			}
-			if (destFile != null) {
-				iMetadata = Sanselan.getMetadata(destFile);
-			}
-			if (iMetadata != null) {
-				GPSInfo gpsInfo = null;
-				if (iMetadata instanceof JpegImageMetadata) {
-					gpsInfo = ((JpegImageMetadata) iMetadata).getExif().getGPS();
-					if (gpsInfo != null) {
-						log.debug("latitude={}", gpsInfo.getLatitudeAsDegreesNorth());
-						log.debug("longitude={}", gpsInfo.getLongitudeAsDegreesEast());
-						entity.setLatitude(gpsInfo.getLatitudeAsDegreesNorth());
-						entity.setLongitude(gpsInfo.getLongitudeAsDegreesEast());
-					}
-				} else {
-					List<?> items = iMetadata.getItems();
-					for (Object item : items) {
-						log.debug(item.toString());
-					}
-				}
-			}
-		} catch (ImageReadException | IOException e) {
-			log.warn(e.getMessage(), e);
-		}
+		return mapper.writer(schema).writeValueAsString(csv);
 	}
 }
