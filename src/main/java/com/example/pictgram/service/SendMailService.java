@@ -3,15 +3,21 @@ package com.example.pictgram.service;
 import java.nio.charset.StandardCharsets;
 
 import org.springframework.beans.factory.annotation.Autowired;
+<<<<<<< HEAD
 import org.springframework.beans.factory.annotation.Value;
+=======
+>>>>>>> 117b42b68a6d228c884a4c407ced3f02a6cf733d
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.mail.javamail.MimeMessagePreparator;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
+<<<<<<< HEAD
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+=======
+>>>>>>> 117b42b68a6d228c884a4c407ced3f02a6cf733d
 
 import jakarta.mail.internet.MimeMessage;
 
@@ -23,6 +29,7 @@ public class SendMailService {
 	@Value("${SPRING_MAIL_USERNAME}")
 	private String springMailUsername;
 
+
 	public void sendMail(Context context) {
 
 		javaMailSender.send(new MimeMessagePreparator() {
@@ -30,14 +37,17 @@ public class SendMailService {
 			@Override
 			public void prepare(MimeMessage mimeMessage) throws Exception {
 				MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, StandardCharsets.UTF_8.name());
+
 				helper.setFrom(springMailUsername);
 				helper.setTo(springMailUsername);
 				helper.setSubject((String) context.getVariable("title"));
 				helper.setText(getMailBody("email", context), true);
+
 			}
 		});
 
 	}
+
 
 	private String getMailBody(String templateName, Context context) {
 		SpringTemplateEngine templateEngine = new SpringTemplateEngine();
