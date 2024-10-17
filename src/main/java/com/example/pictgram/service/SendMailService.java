@@ -3,21 +3,15 @@ package com.example.pictgram.service;
 import java.nio.charset.StandardCharsets;
 
 import org.springframework.beans.factory.annotation.Autowired;
-<<<<<<< HEAD
 import org.springframework.beans.factory.annotation.Value;
-=======
->>>>>>> 117b42b68a6d228c884a4c407ced3f02a6cf733d
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.mail.javamail.MimeMessagePreparator;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
-<<<<<<< HEAD
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
-=======
->>>>>>> 117b42b68a6d228c884a4c407ced3f02a6cf733d
 
 import jakarta.mail.internet.MimeMessage;
 
