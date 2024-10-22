@@ -46,20 +46,5 @@ push7:
 
 googlemap:
   key: ${googlemap.key}
-  
-  mail:
-    default-encoding: UTF-8
-    protocol: smtp
-    host: ${spring.mail.host}
-    port: ${spring.mail.port}
-    username: ${spring.mail.username}
-    password: ${spring.mail.password}
-    properties: 
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-  thymeleaf:
-    check-template-location: false
+
 
